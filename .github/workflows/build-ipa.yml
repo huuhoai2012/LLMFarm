@@ -1,23 +1,12 @@
-name: Build unsigned IPA
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Xcode version and schemes
+      - name: Resolve packages
         run: |
-          xcodebuild -version
-          xcodebuild -list -project LLMFarm.xcodeproj
+          xcodebuild -resolvePackageDependencies \
+            -project LLMFarm.xcodeproj \
+            -scheme LLMFarm
 
       - name: Build (no signing)
         run: |
+          set -o pipefail
           xcodebuild \
             -project LLMFarm.xcodeproj \
             -scheme LLMFarm \
@@ -25,18 +14,9 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build
-
-      - name: Package IPA
-        run: |
-          mkdir Payload
-          cp -R build/Build/Products/Release-iphoneos/*.app Payload/
-          zip -qr LLMFarm.ipa Payload
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: LLMFarm-ipa
-          path: LLMFarm.ipa
+            build 2>&1 | tail -n 80
